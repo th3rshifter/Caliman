@@ -1,6 +1,0 @@
-- name: Install and configure Docker
-  hosts: caliman_nodes
-  become: true
-
-  roles:
-    - docker
