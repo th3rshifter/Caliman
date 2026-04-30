@@ -1,3 +1,4 @@
 DevOps/SRE sandbox project
 
-other/logo.png
+## Architecture Overview
+![Caliman Architecture](other/logo.png)
