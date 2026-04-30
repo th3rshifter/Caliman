@@ -6,3 +6,6 @@ secrets/
 .env
 .env.*
 !.env.example
+.idea/
+.vscode/
+__pycache__/
