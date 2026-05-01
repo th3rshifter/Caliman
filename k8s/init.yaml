@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: caliman-init
+spec:
+  containers:
+  - name: caliman-app
+    image: caliman-app:local
+    ports:
+    - containerPort: 8080
+  initContainers:
+  - name: wait-for
+    image: busybox
+    command: ['sh', '-c', 'until nc -z service 5432; do echo waiting for service; sleep 2; done;']
