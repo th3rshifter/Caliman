@@ -1,0 +1,61 @@
+name: Infra checks
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  yaml-lint:
+    name: YAML lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install yamllint
+        run: pipx install yamllint
+
+      - name: Run yamllint
+        run: |
+          yamllint .
+
+  ansible-lint:
+    name: Ansible lint
+    runs-on: ubuntu-latest
+
+    if: hashFiles('ansible/**/*.yml', 'ansible/**/*.yaml') != ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install ansible-lint
+        run: pipx install ansible-lint
+
+      - name: Run ansible-lint
+        run: |
+          ansible-lint ansible/
+
+  helm-lint:
+    name: Helm lint
+    runs-on: ubuntu-latest
+
+    if: hashFiles('helm/**/Chart.yaml') != ''
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Run helm lint
+        run: |
+          for chart in helm/*; do
+            if [ -f "$chart/Chart.yaml" ]; then
+              helm lint "$chart"
+            fi
+          done
