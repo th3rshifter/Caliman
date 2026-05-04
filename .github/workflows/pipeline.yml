@@ -104,6 +104,38 @@ jobs:
           cat app.log
           exit 1
 
+  syscheck:
+    name: Syscheck ✅
+    runs-on: ubuntu-latest
+    needs:
+      - app-check
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install syscheck dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install psutil rich
+          echo "✅ syscheck dependencies installed"
+
+      - name: Run app/syscheck.py
+        run: |
+          if [ ! -f app/syscheck.py ]; then
+            echo "❌ app/syscheck.py not found"
+            exit 1
+          fi
+
+          python app/syscheck.py
+          echo "✅ app/syscheck.py passed"
+
   ansible-lint:
     name: Ansible lint ✅
     runs-on: ubuntu-latest
@@ -272,6 +304,7 @@ jobs:
     needs:
       - yaml-lint
       - app-check
+      - syscheck
       - ansible-lint
       - ansible-syntax
       - helm-lint
@@ -371,6 +404,7 @@ jobs:
     needs:
       - yaml-lint
       - app-check
+      - syscheck
       - ansible-lint
       - ansible-syntax
       - helm-lint
@@ -403,6 +437,7 @@ jobs:
           |---|---|
           | YAML lint | `${{ needs.yaml-lint.result }}` |
           | App check | `${{ needs.app-check.result }}` |
+          | Syscheck | `${{ needs.syscheck.result }}` |
           | Ansible lint | `${{ needs.ansible-lint.result }}` |
           | Ansible syntax | `${{ needs.ansible-syntax.result }}` |
           | Helm lint | `${{ needs.helm-lint.result }}` |
@@ -414,7 +449,7 @@ jobs:
 
           ## Policy
 
-          - ✅ Build, app smoke test, Ansible syntax and Helm lint are blocking checks.
+          - ✅ Build, app smoke test, syscheck, Ansible syntax and Helm lint are blocking checks.
           - ⚠️ Hadolint DL3008 and pip-audit findings are advisory for now.
           - 📦 Images are published only on `push` to `main`.
           EOF
