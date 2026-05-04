@@ -20,7 +20,7 @@ env:
 
 jobs:
   yaml-lint:
-    name: YAML lint
+    name: YAML lint ✅
     runs-on: ubuntu-latest
 
     steps:
@@ -31,11 +31,82 @@ jobs:
         run: pipx install yamllint
 
       - name: Run yamllint
-        run: yamllint -c .yamllint.yml .
+        run: |
+          yamllint -c .yamllint.yml .
+          echo "✅ YAML lint passed"
 
-  #Stage 1: Lint checks
+  app-check:
+    name: App check ✅
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install app dependencies
+        run: |
+          if [ -f requirements.txt ]; then
+            python -m pip install --upgrade pip
+            pip install -r requirements.txt
+            echo "✅ Python dependencies installed"
+          else
+            echo "⏭️ requirements.txt not found, skipping dependency install"
+          fi
+
+      - name: Compile app sources
+        run: |
+          if [ -d app ]; then
+            python -m compileall app
+            echo "✅ Python compile check passed"
+          else
+            echo "❌ app directory not found"
+            exit 1
+          fi
+
+      - name: Import FastAPI application
+        run: |
+          python - <<'PY'
+          from app.main import app
+          print(f"✅ Imported FastAPI app: {app.title}")
+          PY
+
+      - name: Run app smoke test
+        run: |
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8080 > app.log 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            kill "$app_pid" >/dev/null 2>&1 || true
+          }
+          trap cleanup EXIT
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health; then
+              echo "✅ /health passed"
+              curl -fsS http://127.0.0.1:8080/ready
+              echo "✅ /ready passed"
+              curl -fsS http://127.0.0.1:8080/
+              echo "✅ / passed"
+              echo "✅ App smoke test passed"
+              exit 0
+            fi
+
+            echo "⏳ Waiting for app to start: attempt ${i}/30"
+            sleep 2
+          done
+
+          echo "❌ App smoke test failed"
+          cat app.log
+          exit 1
+
+  # Stage 1: Lint checks
   ansible-lint:
-    name: Ansible lint
+    name: Ansible lint ✅
     runs-on: ubuntu-latest
     env:
       ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
@@ -64,12 +135,13 @@ jobs:
         run: |
           if [ -d ansible ] && find ansible -type f \( -name "*.yml" -o -name "*.yaml" \) | grep -q .; then
             ansible-lint ansible/playbooks/site.yml
+            echo "✅ Ansible lint passed"
           else
-            echo "No Ansible YAML files found, skipping ansible-lint"
+            echo "⏭️ No Ansible YAML files found, skipping ansible-lint"
           fi
 
   helm-lint:
-    name: Helm lint
+    name: Helm lint ✅
     runs-on: ubuntu-latest
 
     steps:
@@ -82,7 +154,7 @@ jobs:
       - name: Run helm lint
         run: |
           if [ ! -d helm ]; then
-            echo "No helm directory found, skipping helm lint"
+            echo "⏭️ No helm directory found, skipping helm lint"
             exit 0
           fi
 
@@ -92,19 +164,21 @@ jobs:
             if [ -f "$chart/Chart.yaml" ]; then
               found=1
               helm lint "$chart"
+              echo "✅ Helm lint passed for $chart"
             fi
           done
 
           if [ "$found" -eq 0 ]; then
-            echo "No Helm charts found, skipping helm lint"
+            echo "⏭️ No Helm charts found, skipping helm lint"
           fi
-  
-  #Stage 2: Build and test Docker image
+
+  # Stage 2: Build and test Docker image
   docker-build:
-    name: Docker build
+    name: Docker build ✅
     runs-on: ubuntu-latest
     needs:
       - yaml-lint
+      - app-check
       - ansible-lint
       - helm-lint
 
@@ -116,7 +190,9 @@ jobs:
         uses: docker/setup-buildx-action@v3
 
       - name: Build Docker image
-        run: docker build --pull --tag caliman:${IMAGE_TAG} .
+        run: |
+          docker build --pull --tag caliman:${IMAGE_TAG} .
+          echo "✅ Docker image built: caliman:${IMAGE_TAG}"
 
       - name: Run container smoke test
         run: |
@@ -125,17 +201,21 @@ jobs:
 
           for i in $(seq 1 30); do
             if curl -fsS http://127.0.0.1:8080/health; then
-              echo "Healthcheck passed"
+              echo "✅ Container /health passed"
               curl -fsS http://127.0.0.1:8080/ready
+              echo "✅ Container /ready passed"
               curl -fsS http://127.0.0.1:8080/
+              echo "✅ Container / passed"
               docker rm -f caliman-smoke
+              echo "✅ Docker smoke test passed"
               exit 0
             fi
 
-            echo "Waiting for app to start: attempt ${i}/30"
+            echo "⏳ Waiting for container to start: attempt ${i}/30"
             sleep 2
           done
 
+          echo "❌ Docker smoke test failed"
           docker logs caliman-smoke
           docker rm -f caliman-smoke
           exit 1
@@ -149,8 +229,11 @@ jobs:
           vuln-type: os,library
           exit-code: "0"
 
+      - name: Print scan status
+        run: echo "✅ Trivy scan finished"
+
   docker-publish:
-    name: Publish image to GHCR
+    name: Publish image to GHCR ✅
     runs-on: ubuntu-latest
     needs:
       - docker-build
@@ -178,3 +261,8 @@ jobs:
           tags: |
             ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
             ${{ env.IMAGE_NAME }}:latest
+
+      - name: Print publish status
+        run: |
+          echo "✅ Published image: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
+          echo "✅ Published image: ${{ env.IMAGE_NAME }}:latest"
