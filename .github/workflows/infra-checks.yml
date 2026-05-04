@@ -19,7 +19,7 @@ jobs:
         run: pipx install yamllint
 
       - name: Run yamllint
-        run: yamllint .
+        run: yamllint -c .yamllint.yml .
 
   ansible-lint:
     name: Ansible lint
