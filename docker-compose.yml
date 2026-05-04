@@ -142,7 +142,7 @@ services:
         reservations:
           memory: 256M
     logging: *default-logging
-  
+
   # Node Exporter
   node-exporter:
     image: prom/node-exporter:v1.9.1
