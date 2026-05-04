@@ -1,5 +1,5 @@
-app_name: caliman
-app_port: 8080
-app_log_level: info
+app_config_name: caliman
+app_config_port: 8080
+app_config_log_level: info
 app_config_dir: /opt/caliman
-env_name: dev
+app_config_env_name: dev

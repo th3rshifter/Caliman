@@ -32,14 +32,20 @@ jobs:
       - name: Install ansible-lint
         run: pipx install ansible-lint
 
+      - name: Install Ansible collections
+        run: |
+          cd ansible
+          ansible-galaxy collection install -r requirements.yml -p ./collections
+
       - name: Run ansible-lint
         run: |
-          if find ansible -type f \( -name "*.yml" -o -name "*.yaml" \) | grep -q .; then
-            ansible-lint ansible/
+          if [ -d ansible ] && find ansible -type f \( -name "*.yml" -o -name "*.yaml" \) | grep -q .; then
+            cd ansible
+            ansible-lint playbooks/site.yml
           else
             echo "No Ansible YAML files found, skipping ansible-lint"
           fi
-
+          
   helm-lint:
     name: Helm lint
     runs-on: ubuntu-latest
