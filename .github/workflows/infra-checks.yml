@@ -19,14 +19,11 @@ jobs:
         run: pipx install yamllint
 
       - name: Run yamllint
-        run: |
-          yamllint .
+        run: yamllint .
 
   ansible-lint:
     name: Ansible lint
     runs-on: ubuntu-latest
-
-    if: hashFiles('ansible/**/*.yml', 'ansible/**/*.yaml') != ''
 
     steps:
       - name: Checkout repository
@@ -37,13 +34,15 @@ jobs:
 
       - name: Run ansible-lint
         run: |
-          ansible-lint ansible/
+          if find ansible -type f \( -name "*.yml" -o -name "*.yaml" \) | grep -q .; then
+            ansible-lint ansible/
+          else
+            echo "No Ansible YAML files found, skipping ansible-lint"
+          fi
 
   helm-lint:
     name: Helm lint
     runs-on: ubuntu-latest
-
-    if: hashFiles('helm/**/Chart.yaml') != ''
 
     steps:
       - name: Checkout repository
@@ -54,8 +53,15 @@ jobs:
 
       - name: Run helm lint
         run: |
+          found=0
+
           for chart in helm/*; do
             if [ -f "$chart/Chart.yaml" ]; then
+              found=1
               helm lint "$chart"
             fi
           done
+
+          if [ "$found" -eq 0 ]; then
+            echo "No Helm charts found, skipping helm lint"
+          fi
