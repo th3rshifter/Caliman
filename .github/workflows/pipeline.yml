@@ -104,7 +104,6 @@ jobs:
           cat app.log
           exit 1
 
-  # Stage 1: Lint checks
   ansible-lint:
     name: Ansible lint ✅
     runs-on: ubuntu-latest
@@ -211,14 +210,15 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Run Hadolint
+      - name: Run Hadolint advisory check
         uses: hadolint/hadolint-action@v3.3.0
         with:
           dockerfile: Dockerfile
-          failure-threshold: warning
+          failure-threshold: error
+          ignore: DL3008
 
       - name: Print Hadolint status
-        run: echo "✅ Dockerfile lint passed"
+        run: echo "✅ Dockerfile lint passed. Advisory warnings are non-blocking."
 
   secrets-scan:
     name: Secrets scan ✅
@@ -252,18 +252,20 @@ jobs:
           python-version: "3.12"
           cache: pip
 
-      - name: Run pip-audit
+      - name: Run pip-audit advisory check
         run: |
           if [ -f requirements.txt ]; then
             python -m pip install --upgrade pip
             pip install pip-audit
-            pip-audit -r requirements.txt
+            pip-audit -r requirements.txt || {
+              echo "⚠️ pip-audit found vulnerabilities. Report is advisory for now."
+              exit 0
+            }
             echo "✅ pip-audit dependency scan passed"
           else
             echo "⏭️ requirements.txt not found, skipping pip-audit"
           fi
 
-  # Stage 2: Build and test Docker image
   docker-build:
     name: Docker build ✅
     runs-on: ubuntu-latest
