@@ -25,7 +25,8 @@ jobs:
     name: Ansible lint
     runs-on: ubuntu-latest
     env:
-      ANSIBLE_CONFIG: ansible/ansible.cfg
+      ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
+      ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}/ansible/collections:/home/runner/.ansible/collections:/usr/share/ansible/collections
 
     steps:
       - name: Checkout repository
@@ -36,17 +37,20 @@ jobs:
 
       - name: Install Ansible collections
         run: |
-          ansible-galaxy collection install -r ansible/requirements.yml
+          ansible-galaxy collection install -r ansible/requirements.yml -p ansible/collections
+
+      - name: Show installed Ansible collections
+        run: |
+          ansible-galaxy collection list
 
       - name: Run ansible-lint
         run: |
           if [ -d ansible ] && find ansible -type f \( -name "*.yml" -o -name "*.yaml" \) | grep -q .; then
-            cd ansible
-            ansible-lint playbooks/site.yml
+            ansible-lint ansible/playbooks/site.yml
           else
             echo "No Ansible YAML files found, skipping ansible-lint"
           fi
-          
+
   helm-lint:
     name: Helm lint
     runs-on: ubuntu-latest
@@ -60,6 +64,11 @@ jobs:
 
       - name: Run helm lint
         run: |
+          if [ ! -d helm ]; then
+            echo "No helm directory found, skipping helm lint"
+            exit 0
+          fi
+
           found=0
 
           for chart in helm/*; do
