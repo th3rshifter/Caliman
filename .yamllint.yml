@@ -1,0 +1,52 @@
+---
+extends: default
+
+ignore: |
+  .git/
+  .venv/
+  venv/
+  node_modules/
+  ansible/collections/
+
+rules:
+  document-start: disable
+
+  new-lines: disable
+
+  new-line-at-end-of-file:
+    level: warning
+
+  trailing-spaces:
+    level: warning
+
+  line-length:
+    max: 160
+    level: warning
+
+  comments:
+    level: warning
+    min-spaces-from-content: 1
+
+  truthy:
+    level: warning
+    allowed-values:
+      - "true"
+      - "false"
+      - "yes"
+      - "no"
+      - "on"
+      - "off"
+
+  braces:
+    level: warning
+    min-spaces-inside: 0
+    max-spaces-inside: 1
+
+  empty-lines:
+    level: warning
+    max: 1
+    max-start: 0
+    max-end: 1
+
+  indentation:
+    level: warning
