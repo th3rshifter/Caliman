@@ -58,13 +58,20 @@
     group: "{{ common_admin_group }}"
     mode: "0700"
 
-- name: Install authorized SSH keys
-  ansible.builtin.authorized_key:
-    user: "{{ common_admin_user }}"
-    key: "{{ item }}"
-    state: present
-  loop: "{{ common_admin_authorized_keys }}"
+- name: Render authorized SSH keys
+  ansible.builtin.copy:
+    dest: "/home/{{ common_admin_user }}/.ssh/authorized_keys"
+    content: "{{ common_admin_authorized_keys | join('\n') }}\n"
+    owner: "{{ common_admin_user }}"
+    group: "{{ common_admin_group }}"
+    mode: "0600"
   when: common_admin_authorized_keys | length > 0
+
+- name: Remove empty authorized SSH keys file
+  ansible.builtin.file:
+    path: "/home/{{ common_admin_user }}/.ssh/authorized_keys"
+    state: absent
+  when: common_admin_authorized_keys | length == 0
 
 - name: Render sudoers file from Jinja2 template
   ansible.builtin.template:
