@@ -28,11 +28,9 @@ services:
     ports:
       - "127.0.0.1:8080:8080"
 
-    # Используем env_file для dev-окружения вместо inline-переменных.
-    # Создайте файл .env.app (и добавьте его в .gitignore).
     env_file:
       - path: .env.app
-        required: false        # Позволяет запустить без файла (fallback — defaults ниже)
+        required: false
     environment:
       APP_ENV: ${APP_ENV:-dev}
       APP_LOG_LEVEL: ${APP_LOG_LEVEL:-debug}
@@ -43,8 +41,6 @@ services:
 
     <<: *default-security
 
-    # Healthcheck переключён с curl на python — curl не нужен в образе.
-    # Теперь можно убрать curl из Dockerfile.
     healthcheck:
       test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://127.0.0.1:8080/health')\""]
       interval: 30s
