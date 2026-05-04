@@ -6,6 +6,18 @@ on:
       - main
   pull_request:
 
+permissions:
+  contents: read
+  packages: write
+
+concurrency:
+  group: pipeline-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  IMAGE_NAME: ghcr.io/th3rshifter/caliman
+  IMAGE_TAG: ${{ github.sha }}
+
 jobs:
   yaml-lint:
     name: YAML lint
@@ -26,7 +38,10 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANSIBLE_CONFIG: ${{ github.workspace }}/ansible/ansible.cfg
-      ANSIBLE_COLLECTIONS_PATH: ${{ github.workspace }}/ansible/collections:/home/runner/.ansible/collections:/usr/share/ansible/collections
+      ANSIBLE_COLLECTIONS_PATH: >-
+        ${{ github.workspace }}/ansible/collections:
+        /home/runner/.ansible/collections:
+        /usr/share/ansible/collections
 
     steps:
       - name: Checkout repository
@@ -36,12 +51,13 @@ jobs:
         run: pipx install ansible-lint
 
       - name: Install Ansible collections
-        run: |
-          ansible-galaxy collection install -r ansible/requirements.yml -p ansible/collections
+        run: >-
+          ansible-galaxy collection install
+          -r ansible/requirements.yml
+          -p ansible/collections
 
       - name: Show installed Ansible collections
-        run: |
-          ansible-galaxy collection list
+        run: ansible-galaxy collection list
 
       - name: Run ansible-lint
         run: |
@@ -81,3 +97,82 @@ jobs:
           if [ "$found" -eq 0 ]; then
             echo "No Helm charts found, skipping helm lint"
           fi
+
+  docker-build-smoke:
+    name: Docker build and smoke test
+    runs-on: ubuntu-latest
+    needs:
+      - yaml-lint
+      - ansible-lint
+      - helm-lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        run: docker build --pull --tag caliman:${IMAGE_TAG} .
+
+      - name: Run container smoke test
+        run: |
+          docker rm -f caliman-smoke >/dev/null 2>&1 || true
+          docker run -d --name caliman-smoke -p 8080:8080 caliman:${IMAGE_TAG}
+
+          for i in $(seq 1 30); do
+            if curl -fsS http://127.0.0.1:8080/health; then
+              echo "Healthcheck passed"
+              curl -fsS http://127.0.0.1:8080/ready
+              curl -fsS http://127.0.0.1:8080/
+              docker rm -f caliman-smoke
+              exit 0
+            fi
+
+            echo "Waiting for app to start: attempt ${i}/30"
+            sleep 2
+          done
+
+          docker logs caliman-smoke
+          docker rm -f caliman-smoke
+          exit 1
+
+      - name: Scan Docker image with Trivy
+        uses: aquasecurity/trivy-action@0.28.0
+        with:
+          image-ref: caliman:${{ env.IMAGE_TAG }}
+          format: table
+          severity: HIGH,CRITICAL
+          vuln-type: os,library
+          exit-code: "0"
+
+  docker-publish:
+    name: Publish image to GHCR
+    runs-on: ubuntu-latest
+    needs:
+      - docker-build-smoke
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}
+            ${{ env.IMAGE_NAME }}:latest
