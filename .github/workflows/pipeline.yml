@@ -203,6 +203,66 @@ jobs:
             echo "⏭️ No Helm charts found, skipping helm lint"
           fi
 
+  dockerfile-lint:
+    name: Dockerfile lint ✅
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run Hadolint
+        uses: hadolint/hadolint-action@v3.3.0
+        with:
+          dockerfile: Dockerfile
+          failure-threshold: warning
+
+      - name: Print Hadolint status
+        run: echo "✅ Dockerfile lint passed"
+
+  secrets-scan:
+    name: Secrets scan ✅
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Print Gitleaks status
+        run: echo "✅ Gitleaks secrets scan passed"
+
+  dependency-audit:
+    name: Dependency audit ✅
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Run pip-audit
+        run: |
+          if [ -f requirements.txt ]; then
+            python -m pip install --upgrade pip
+            pip install pip-audit
+            pip-audit -r requirements.txt
+            echo "✅ pip-audit dependency scan passed"
+          else
+            echo "⏭️ requirements.txt not found, skipping pip-audit"
+          fi
+
   # Stage 2: Build and test Docker image
   docker-build:
     name: Docker build ✅
@@ -213,6 +273,9 @@ jobs:
       - ansible-lint
       - ansible-syntax
       - helm-lint
+      - dockerfile-lint
+      - secrets-scan
+      - dependency-audit
 
     steps:
       - name: Checkout repository
