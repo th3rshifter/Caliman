@@ -26,7 +26,6 @@ jobs:
     runs-on: ubuntu-latest
     env:
       ANSIBLE_CONFIG: ansible/ansible.cfg
-      ANSIBLE_COLLECTIONS_PATH: ansible/collections:~/.ansible/collections:/usr/share/ansible/collections
 
     steps:
       - name: Checkout repository
@@ -37,7 +36,7 @@ jobs:
 
       - name: Install Ansible collections
         run: |
-          ansible-galaxy collection install -r ansible/requirements.yml -p ansible/collections
+          ansible-galaxy collection install -r ansible/requirements.yml
 
       - name: Run ansible-lint
         run: |
