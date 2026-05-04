@@ -363,3 +363,60 @@ jobs:
         run: |
           echo "✅ Published image: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
           echo "✅ Published image: ${{ env.IMAGE_NAME }}:latest"
+
+  pipeline-summary:
+    name: Pipeline summary ✅
+    runs-on: ubuntu-latest
+    if: always()
+    needs:
+      - yaml-lint
+      - app-check
+      - ansible-lint
+      - ansible-syntax
+      - helm-lint
+      - dockerfile-lint
+      - secrets-scan
+      - dependency-audit
+      - docker-build
+      - docker-publish
+
+    steps:
+      - name: Write GitHub Actions summary
+        run: |
+          cat >> "$GITHUB_STEP_SUMMARY" <<'EOF'
+          # Caliman Pipeline Summary ✅
+
+          ## Build metadata
+
+          | Field | Value |
+          |---|---|
+          | Repository | `${{ github.repository }}` |
+          | Branch / ref | `${{ github.ref }}` |
+          | Commit | `${{ github.sha }}` |
+          | Event | `${{ github.event_name }}` |
+          | Image SHA tag | `${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}` |
+          | Image latest tag | `${{ env.IMAGE_NAME }}:latest` |
+
+          ## Quality gates
+
+          | Stage | Result |
+          |---|---|
+          | YAML lint | `${{ needs.yaml-lint.result }}` |
+          | App check | `${{ needs.app-check.result }}` |
+          | Ansible lint | `${{ needs.ansible-lint.result }}` |
+          | Ansible syntax | `${{ needs.ansible-syntax.result }}` |
+          | Helm lint | `${{ needs.helm-lint.result }}` |
+          | Dockerfile lint | `${{ needs.dockerfile-lint.result }}` |
+          | Secrets scan | `${{ needs.secrets-scan.result }}` |
+          | Dependency audit | `${{ needs.dependency-audit.result }}` |
+          | Docker build and smoke test | `${{ needs.docker-build.result }}` |
+          | GHCR publish | `${{ needs.docker-publish.result }}` |
+
+          ## Policy
+
+          - ✅ Build, app smoke test, Ansible syntax and Helm lint are blocking checks.
+          - ⚠️ Hadolint DL3008 and pip-audit findings are advisory for now.
+          - 📦 Images are published only on `push` to `main`.
+          EOF
+
+          echo "✅ Pipeline summary generated"
