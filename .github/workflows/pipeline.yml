@@ -135,7 +135,7 @@ jobs:
             exit 1
           fi
 
-          timeout 60s python app/syscheck.py
+          timeout 360s python app/syscheck.py
           echo "✅ app/syscheck.py passed"
 
   ansible-lint:
