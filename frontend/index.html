@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Caliman DevOps Dashboard</title>
+  <link rel="stylesheet" href="./styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="hero card">
+      <div>
+        <p class="eyebrow">Caliman Platform</p>
+        <h1>DevOps CI/CD Dashboard</h1>
+        <p class="lead">
+          GitHub Actions pipeline, FastAPI backend, Docker image publishing,
+          Ansible checks, Helm validation and security gates.
+        </p>
+      </div>
+      <div class="status-pill">✅ Pipeline ready</div>
+    </section>
+
+    <section class="grid">
+      <article class="card">
+        <h2>Pipeline</h2>
+        <p>Quality gates, smoke tests, image scan and GHCR publish.</p>
+        <a class="button" href="https://github.com/th3rshifter/Caliman/actions/workflows/pipeline.yml">Open Actions</a>
+      </article>
+
+      <article class="card">
+        <h2>Container Image</h2>
+        <p>Published image tags are created from commit SHA and latest.</p>
+        <code>ghcr.io/th3rshifter/caliman:latest</code>
+        <a class="button" href="https://github.com/th3rshifter/Caliman/pkgs/container/caliman">Open GHCR</a>
+      </article>
+
+      <article class="card">
+        <h2>Application</h2>
+        <p>FastAPI endpoints expected after backend deployment.</p>
+        <ul>
+          <li><code>/</code></li>
+          <li><code>/health</code></li>
+          <li><code>/ready</code></li>
+          <li><code>/metrics</code></li>
+        </ul>
+      </article>
+
+      <article class="card">
+        <h2>Checks</h2>
+        <div id="checks" class="checks"></div>
+      </article>
+    </section>
+  </main>
+
+  <script src="./app.js"></script>
+</body>
+</html>
