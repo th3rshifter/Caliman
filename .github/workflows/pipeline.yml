@@ -9,6 +9,8 @@ on:
 permissions:
   contents: read
   packages: write
+  pages: write
+  id-token: write
 
 concurrency:
   group: pipeline-${{ github.ref }}
@@ -133,7 +135,7 @@ jobs:
             exit 1
           fi
 
-          python app/syscheck.py
+          timeout 60s python app/syscheck.py
           echo "✅ app/syscheck.py passed"
 
   ansible-lint:
@@ -298,6 +300,36 @@ jobs:
             echo "⏭️ requirements.txt not found, skipping pip-audit"
           fi
 
+  frontend-build:
+    name: Frontend build ✅
+    runs-on: ubuntu-latest
+    needs:
+      - yaml-lint
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate static frontend
+        run: |
+          test -f frontend/index.html
+          test -f frontend/styles.css
+          test -f frontend/app.js
+          echo "✅ frontend static files validated"
+
+      - name: Prepare Pages artifact
+        run: |
+          rm -rf public
+          mkdir -p public
+          cp -R frontend/. public/
+          echo "${{ github.sha }}" > public/BUILD_SHA.txt
+          echo "✅ frontend artifact prepared"
+
+      - name: Upload GitHub Pages artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+
   docker-build:
     name: Docker build ✅
     runs-on: ubuntu-latest
@@ -311,6 +343,7 @@ jobs:
       - dockerfile-lint
       - secrets-scan
       - dependency-audit
+      - frontend-build
 
     steps:
       - name: Checkout repository
@@ -397,6 +430,27 @@ jobs:
           echo "✅ Published image: ${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}"
           echo "✅ Published image: ${{ env.IMAGE_NAME }}:latest"
 
+  pages-deploy:
+    name: Deploy frontend to GitHub Pages 🚀
+    runs-on: ubuntu-latest
+    needs:
+      - frontend-build
+      - docker-build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+
+      - name: Print Pages status
+        run: |
+          echo "✅ Frontend deployed to GitHub Pages"
+          echo "🌐 ${{ steps.deployment.outputs.page_url }}"
+
   pipeline-summary:
     name: Pipeline summary ✅
     runs-on: ubuntu-latest
@@ -411,8 +465,10 @@ jobs:
       - dockerfile-lint
       - secrets-scan
       - dependency-audit
+      - frontend-build
       - docker-build
       - docker-publish
+      - pages-deploy
 
     steps:
       - name: Write GitHub Actions summary
@@ -430,6 +486,7 @@ jobs:
           | Event | `${{ github.event_name }}` |
           | Image SHA tag | `${{ env.IMAGE_NAME }}:${{ env.IMAGE_TAG }}` |
           | Image latest tag | `${{ env.IMAGE_NAME }}:latest` |
+          | Frontend URL | `https://th3rshifter.github.io/Caliman/` |
 
           ## Quality gates
 
@@ -444,14 +501,17 @@ jobs:
           | Dockerfile lint | `${{ needs.dockerfile-lint.result }}` |
           | Secrets scan | `${{ needs.secrets-scan.result }}` |
           | Dependency audit | `${{ needs.dependency-audit.result }}` |
+          | Frontend build | `${{ needs.frontend-build.result }}` |
           | Docker build and smoke test | `${{ needs.docker-build.result }}` |
           | GHCR publish | `${{ needs.docker-publish.result }}` |
+          | GitHub Pages deploy | `${{ needs.pages-deploy.result }}` |
 
           ## Policy
 
-          - ✅ Build, app smoke test, syscheck, Ansible syntax and Helm lint are blocking checks.
+          - ✅ Build, app smoke test, syscheck, Ansible syntax, Helm lint and frontend build are blocking checks.
           - ⚠️ Hadolint DL3008 and pip-audit findings are advisory for now.
           - 📦 Images are published only on `push` to `main`.
+          - 🌐 Frontend is deployed to GitHub Pages only on `push` to `main`.
           EOF
 
           echo "✅ Pipeline summary generated"
